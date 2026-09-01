@@ -1,0 +1,10 @@
+node_modules
+.git
+.env
+.env.*
+!.env.example
+attached_assets
+.agents
+.cache
+.upm
+scripts

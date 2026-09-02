@@ -37,41 +37,35 @@ const sendError = (res, status, code, message) =>
   res.status(status).json({ error: { code, message } });
 
 async function sendMail(to, subject, html) {
-  const user = process.env.GMAIL_USER;
-  const pass = process.env.GMAIL_APP_PASSWORD;
-  if (!user || !pass) {
-    console.warn(
-      JSON.stringify({
-        event: "email_skipped",
-        reason: "GMAIL_USER and GMAIL_APP_PASSWORD are required",
-        to,
-        subject,
-      }),
-    );
+  const apiKey = process.env.BREVO_API_KEY;
+  if (!apiKey) {
+    console.warn("BREVO_API_KEY missing - skipping email");
     return false;
   }
-
   try {
-    const transporter = nodemailer.createTransport({
-      host: "smtp.gmail.com",
-     port: 587,
-        secure: false,
-        requireTLS: true,
-      family: 4,
-      auth: { user, pass },
+    const response = await fetch("https://api.brevo.com/v3/smtp/email", {
+      method: "POST",
+      headers: {
+        "accept": "application/json",
+        "api-key": apiKey,
+        "content-type": "application/json"
+      },
+      body: JSON.stringify({
+        sender: { name: "MediMind Alerts", email: "umarbasit29@gmail.com" },
+        to: [{ email: to }],
+        subject: subject,
+        htmlContent: html
+      })
     });
-    await transporter.sendMail({ from: user, to, subject, html });
-    console.log(JSON.stringify({ event: "email_sent", to, subject }));
-    return true;
+    if (response.ok) {
+      console.log(JSON.stringify({ event: "email_sent", to, subject }));
+      return true;
+    }
+    const errText = await response.text();
+    console.error(JSON.stringify({ event: "email_failed", to, subject, error: errText }));
+    return false;
   } catch (error) {
-    console.error(
-      JSON.stringify({
-        event: "email_failed",
-        to,
-        subject,
-        error: error instanceof Error ? error.message : String(error),
-      }),
-    );
+    console.error(JSON.stringify({ event: "email_failed", to, subject, error: error.message }));
     return false;
   }
 }

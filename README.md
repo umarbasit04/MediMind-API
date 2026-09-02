@@ -28,6 +28,8 @@ Set these environment variables in `.env` or your hosting provider:
 | `JWT_SECRET` | Long random signing secret |
 | `PORT` | Server port, defaults to `5000` |
 | `FRONTEND_URL` | Allowed frontend origin |
+| `GMAIL_USER` | Gmail address used for caretaker SOS alerts |
+| `GMAIL_APP_PASSWORD` | Gmail app password for SMTP |
 
 The database tables must already exist. This API does not run migrations or recreate tables.
 

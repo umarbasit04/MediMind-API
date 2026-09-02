@@ -893,7 +893,10 @@ app.post(
       `<ul>${contactList}</ul>`,
     ].join("");
     await Promise.all(
-      familyMembers.rows.map((member) => sendMail(member.email, subject, html)),
+      familyMembers.rows.map(async (member) => {
+        const sent = await sendMail(member.email, subject, html);
+        if (sent) console.log("SOS email sent to", member.email);
+      }),
     );
     console.log(JSON.stringify({ event: "sos", user_id: req.userId, note: note ?? null, at: new Date().toISOString() }));
     sendData(res, { message: "Emergency contacts ready", contacts: contacts.rows });
@@ -938,7 +941,7 @@ app.get(
        LIMIT 1`,
       [req.userId],
     );
-    if (!result.rows[0]) throw new ApiError(404, "not_found", "Caretaker not found");
+    if (!result.rows[0]) throw new ApiError(404, "not_found", "No caretaker set");
     sendData(res, result.rows[0]);
   }),
 );
@@ -1350,6 +1353,26 @@ const swaggerDocument = {
           200: {
             description: "SOS contacts",
             content: { "application/json": { schema: { $ref: "#/components/schemas/SosResponse" } } },
+          },
+        },
+      },
+    },
+    "/api/family-members/caretaker": {
+      get: {
+        security: [{ bearerAuth: [] }],
+        summary: "Get caretaker",
+        responses: {
+          200: {
+            description: "Caretaker family member",
+            content: { "application/json": { schema: { $ref: "#/components/schemas/FamilyResponse" } } },
+          },
+          404: {
+            description: "No caretaker set",
+            content: {
+              "application/json": {
+                example: { error: { code: "not_found", message: "No caretaker set" } },
+              },
+            },
           },
         },
       },

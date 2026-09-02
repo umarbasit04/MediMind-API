@@ -56,6 +56,7 @@ async function sendMail(to, subject, html) {
       host: "smtp.gmail.com",
       port: 465,
       secure: true,
+      family: 4,
       auth: { user, pass },
     });
     await transporter.sendMail({ from: user, to, subject, html });

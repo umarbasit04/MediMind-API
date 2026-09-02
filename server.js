@@ -3,6 +3,7 @@ const cors = require("cors");
 const bcrypt = require("bcryptjs");
 const jwt = require("jsonwebtoken");
 const { Pool } = require("pg");
+const nodemailer = require("nodemailer");
 const swaggerUi = require("swagger-ui-express");
 
 const PORT = Number(process.env.PORT || 5000);
@@ -34,6 +35,53 @@ const asyncHandler = (handler) => (req, res, next) =>
 const sendData = (res, data, status = 200) => res.status(status).json({ data });
 const sendError = (res, status, code, message) =>
   res.status(status).json({ error: { code, message } });
+
+async function sendMail(to, subject, html) {
+  const user = process.env.GMAIL_USER;
+  const pass = process.env.GMAIL_APP_PASSWORD;
+  if (!user || !pass) {
+    console.warn(
+      JSON.stringify({
+        event: "email_skipped",
+        reason: "GMAIL_USER and GMAIL_APP_PASSWORD are required",
+        to,
+        subject,
+      }),
+    );
+    return false;
+  }
+
+  try {
+    const transporter = nodemailer.createTransport({
+      host: "smtp.gmail.com",
+      port: 465,
+      secure: true,
+      auth: { user, pass },
+    });
+    await transporter.sendMail({ from: user, to, subject, html });
+    console.log(JSON.stringify({ event: "email_sent", to, subject }));
+    return true;
+  } catch (error) {
+    console.error(
+      JSON.stringify({
+        event: "email_failed",
+        to,
+        subject,
+        error: error instanceof Error ? error.message : String(error),
+      }),
+    );
+    return false;
+  }
+}
+
+const escapeHtml = (value) =>
+  String(value ?? "").replace(/[&<>"']/g, (character) => ({
+    "&": "&amp;",
+    "<": "&lt;",
+    ">": "&gt;",
+    '"': "&quot;",
+    "'": "&#39;",
+  })[character]);
 
 class ApiError extends Error {
   constructor(status, code, message) {
@@ -818,6 +866,35 @@ app.post(
       "SELECT name, phone, relation FROM emergency_contacts WHERE user_id=$1 ORDER BY is_primary DESC, created_at",
       [req.userId],
     );
+    const [userResult, familyMembers] = await Promise.all([
+      pool.query("SELECT full_name FROM users WHERE id=$1", [req.userId]),
+      pool.query(
+        "SELECT email FROM family_members WHERE user_id=$1 AND email IS NOT NULL",
+        [req.userId],
+      ),
+    ]);
+    const fullName = userResult.rows[0]?.full_name || "A MediMind user";
+    const noteText = note && note.trim() ? note.trim() : "No note";
+    const contactList = contacts.rows.length
+      ? contacts.rows
+          .map(
+            (contact) =>
+              `<li>${escapeHtml(contact.name)} — ${escapeHtml(contact.phone)}</li>`,
+          )
+          .join("")
+      : "<li>No emergency contacts on file</li>";
+    const subject = `MediMind SOS — ${fullName} needs help`;
+    const html = [
+      `<h2>MediMind SOS alert</h2>`,
+      `<p><strong>${escapeHtml(fullName)}</strong> needs help.</p>`,
+      `<p><strong>Note:</strong> ${escapeHtml(noteText)}</p>`,
+      `<p><strong>UTC time:</strong> ${escapeHtml(new Date().toISOString())}</p>`,
+      `<p><strong>Emergency contacts:</strong></p>`,
+      `<ul>${contactList}</ul>`,
+    ].join("");
+    await Promise.all(
+      familyMembers.rows.map((member) => sendMail(member.email, subject, html)),
+    );
     console.log(JSON.stringify({ event: "sos", user_id: req.userId, note: note ?? null, at: new Date().toISOString() }));
     sendData(res, { message: "Emergency contacts ready", contacts: contacts.rows });
   }),
@@ -846,6 +923,23 @@ app.get(
       [req.userId],
     );
     sendData(res, result.rows);
+  }),
+);
+
+app.get(
+  "/api/family-members/caretaker",
+  authMiddleware,
+  asyncHandler(async (req, res) => {
+    const result = await pool.query(
+      `SELECT id, name, relation, email, phone, can_view_adherence, created_at
+       FROM family_members
+       WHERE user_id=$1 AND can_view_adherence=true
+       ORDER BY created_at
+       LIMIT 1`,
+      [req.userId],
+    );
+    if (!result.rows[0]) throw new ApiError(404, "not_found", "Caretaker not found");
+    sendData(res, result.rows[0]);
   }),
 );
 

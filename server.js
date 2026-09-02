@@ -900,32 +900,741 @@ const swaggerDocument = {
   info: { title: "MediMind API", version: "1.0.0", description: "Medication adherence REST API" },
   servers: [{ url: "/" }],
   paths: {
-    "/health": { get: { summary: "Health check", responses: { 200: { description: "OK" } } } },
-    "/api/auth/register": { post: { summary: "Register", requestBody: { required: true, content: { "application/json": { schema: { $ref: "#/components/schemas/Register" } } } }, responses: { 201: { description: "Registered" } } } },
-    "/api/auth/login": { post: { summary: "Login", requestBody: { required: true, content: { "application/json": { schema: { $ref: "#/components/schemas/Login" } } } }, responses: { 200: { description: "Logged in" } } } },
-    "/api/auth/me": { get: { security: [{ bearerAuth: [] }], summary: "Current user", responses: { 200: { description: "User" } } } },
-    "/api/profile": { get: { security: [{ bearerAuth: [] }], summary: "Get profile", responses: { 200: { description: "Profile" } } }, put: { security: [{ bearerAuth: [] }], summary: "Update profile", responses: { 200: { description: "Profile" } } } },
-    "/api/medicines": { get: { security: [{ bearerAuth: [] }], summary: "List medicines", responses: { 200: { description: "Medicines" } } }, post: { security: [{ bearerAuth: [] }], summary: "Add medicine", requestBody: { required: true, content: { "application/json": { schema: { $ref: "#/components/schemas/MedicineInput" } } } }, responses: { 201: { description: "Medicine" } } } },
-    "/api/medicines/{id}": { parameters: [{ $ref: "#/components/parameters/id" }], get: { security: [{ bearerAuth: [] }], summary: "Get medicine", responses: { 200: { description: "Medicine" } } }, put: { security: [{ bearerAuth: [] }], summary: "Replace medicine", responses: { 200: { description: "Medicine" } } }, delete: { security: [{ bearerAuth: [] }], summary: "Archive medicine", responses: { 200: { description: "Archived" } } } },
-    "/api/reminders/today": { get: { security: [{ bearerAuth: [] }], summary: "Today's reminder dashboard", responses: { 200: { description: "Today items" } } } },
-    "/api/reminders": { get: { security: [{ bearerAuth: [] }], summary: "List reminders", responses: { 200: { description: "Reminders" } } }, post: { security: [{ bearerAuth: [] }], summary: "Add reminder", responses: { 201: { description: "Reminder" } } } },
-    "/api/reminders/{id}": { parameters: [{ $ref: "#/components/parameters/id" }], put: { security: [{ bearerAuth: [] }], summary: "Update reminder", responses: { 200: { description: "Reminder" } } }, delete: { security: [{ bearerAuth: [] }], summary: "Delete reminder", responses: { 200: { description: "Deleted" } } } },
-    "/api/adherence/{reminder_id}/mark": { post: { security: [{ bearerAuth: [] }], summary: "Mark today's dose", responses: { 200: { description: "Log" } } } },
-    "/api/adherence/history": { get: { security: [{ bearerAuth: [] }], summary: "Adherence history", responses: { 200: { description: "Logs" } } } },
-    "/api/adherence/stats": { get: { security: [{ bearerAuth: [] }], summary: "Adherence statistics", responses: { 200: { description: "Stats" } } } },
-    "/api/emergency-contacts": { get: { security: [{ bearerAuth: [] }], summary: "List emergency contacts", responses: { 200: { description: "Contacts" } } }, post: { security: [{ bearerAuth: [] }], summary: "Add emergency contact", responses: { 201: { description: "Contact" } } } },
-    "/api/emergency-contacts/{id}": { parameters: [{ $ref: "#/components/parameters/id" }], put: { security: [{ bearerAuth: [] }], summary: "Update contact", responses: { 200: { description: "Contact" } } }, delete: { security: [{ bearerAuth: [] }], summary: "Delete contact", responses: { 200: { description: "Deleted" } } } },
-    "/api/sos": { post: { security: [{ bearerAuth: [] }], summary: "Prepare SOS contacts", responses: { 200: { description: "SOS contacts" } } } },
-    "/api/family-members": { get: { security: [{ bearerAuth: [] }], summary: "List family members", responses: { 200: { description: "Family members" } } }, post: { security: [{ bearerAuth: [] }], summary: "Add family member", responses: { 201: { description: "Family member" } } } },
-    "/api/family-members/{id}": { parameters: [{ $ref: "#/components/parameters/id" }], put: { security: [{ bearerAuth: [] }], summary: "Update family member", responses: { 200: { description: "Family member" } } }, delete: { security: [{ bearerAuth: [] }], summary: "Delete family member", responses: { 200: { description: "Deleted" } } } },
+    "/health": {
+      get: {
+        summary: "Health check",
+        responses: { 200: { description: "OK" } },
+      },
+    },
+    "/api/auth/register": {
+      post: {
+        summary: "Register",
+        requestBody: {
+          required: true,
+          content: {
+            "application/json": {
+              schema: { $ref: "#/components/schemas/Register" },
+              example: {
+                full_name: "Ayesha Khan",
+                email: "ayesha.khan@example.com",
+                password: "SafePassword123!",
+              },
+            },
+          },
+        },
+        responses: {
+          201: {
+            description: "Registered",
+            content: { "application/json": { schema: { $ref: "#/components/schemas/AuthResponse" } } },
+          },
+        },
+      },
+    },
+    "/api/auth/login": {
+      post: {
+        summary: "Login",
+        requestBody: {
+          required: true,
+          content: {
+            "application/json": {
+              schema: { $ref: "#/components/schemas/Login" },
+              example: { email: "ayesha.khan@example.com", password: "SafePassword123!" },
+            },
+          },
+        },
+        responses: {
+          200: {
+            description: "Logged in",
+            content: { "application/json": { schema: { $ref: "#/components/schemas/AuthResponse" } } },
+          },
+        },
+      },
+    },
+    "/api/auth/me": {
+      get: {
+        security: [{ bearerAuth: [] }],
+        summary: "Current user",
+        responses: {
+          200: {
+            description: "User",
+            content: { "application/json": { schema: { $ref: "#/components/schemas/UserResponse" } } },
+          },
+        },
+      },
+    },
+    "/api/profile": {
+      get: {
+        security: [{ bearerAuth: [] }],
+        summary: "Get profile",
+        responses: {
+          200: {
+            description: "Profile",
+            content: { "application/json": { schema: { $ref: "#/components/schemas/UserResponse" } } },
+          },
+        },
+      },
+      put: {
+        security: [{ bearerAuth: [] }],
+        summary: "Update profile",
+        requestBody: {
+          required: true,
+          content: {
+            "application/json": {
+              schema: { $ref: "#/components/schemas/ProfileUpdate" },
+              example: { full_name: "Ayesha Khan", phone: "+92 300 1234567", date_of_birth: "1995-06-15" },
+            },
+          },
+        },
+        responses: {
+          200: {
+            description: "Profile",
+            content: { "application/json": { schema: { $ref: "#/components/schemas/UserResponse" } } },
+          },
+        },
+      },
+    },
+    "/api/medicines": {
+      get: {
+        security: [{ bearerAuth: [] }],
+        summary: "List medicines",
+        responses: { 200: { description: "Medicines" } },
+      },
+      post: {
+        security: [{ bearerAuth: [] }],
+        summary: "Add medicine",
+        requestBody: {
+          required: true,
+          content: {
+            "application/json": {
+              schema: { $ref: "#/components/schemas/MedicineInput" },
+              example: {
+                name: "Amoxicillin",
+                dosage: "500 mg",
+                form: "capsule",
+                frequency_per_day: 3,
+                start_date: "2026-09-03",
+                end_date: "2026-09-10",
+                instructions: "Take after food",
+                reminder_times: ["08:00", "14:00", "20:00"],
+                days_of_week: [1, 2, 3, 4, 5, 6, 7],
+              },
+            },
+          },
+        },
+        responses: {
+          201: {
+            description: "Medicine",
+            content: { "application/json": { schema: { $ref: "#/components/schemas/MedicineResponse" } } },
+          },
+        },
+      },
+    },
+    "/api/medicines/{id}": {
+      parameters: [{ $ref: "#/components/parameters/id" }],
+      get: {
+        security: [{ bearerAuth: [] }],
+        summary: "Get medicine",
+        responses: {
+          200: {
+            description: "Medicine",
+            content: { "application/json": { schema: { $ref: "#/components/schemas/MedicineResponse" } } },
+          },
+        },
+      },
+      put: {
+        security: [{ bearerAuth: [] }],
+        summary: "Replace medicine",
+        requestBody: {
+          required: true,
+          content: {
+            "application/json": {
+              schema: { $ref: "#/components/schemas/MedicineInput" },
+              example: {
+                name: "Amoxicillin",
+                dosage: "500 mg",
+                form: "capsule",
+                frequency_per_day: 3,
+                start_date: "2026-09-03",
+                end_date: "2026-09-10",
+                instructions: "Take after food",
+                reminder_times: ["08:00", "14:00", "20:00"],
+                days_of_week: [1, 2, 3, 4, 5, 6, 7],
+              },
+            },
+          },
+        },
+        responses: {
+          200: {
+            description: "Medicine",
+            content: { "application/json": { schema: { $ref: "#/components/schemas/MedicineResponse" } } },
+          },
+        },
+      },
+      delete: {
+        security: [{ bearerAuth: [] }],
+        summary: "Archive medicine",
+        responses: { 200: { description: "Archived" } },
+      },
+    },
+    "/api/reminders/today": {
+      get: {
+        security: [{ bearerAuth: [] }],
+        summary: "Today's reminder dashboard",
+        responses: { 200: { description: "Today items" } },
+      },
+    },
+    "/api/reminders": {
+      get: {
+        security: [{ bearerAuth: [] }],
+        summary: "List reminders",
+        responses: { 200: { description: "Reminders" } },
+      },
+      post: {
+        security: [{ bearerAuth: [] }],
+        summary: "Add reminder",
+        requestBody: {
+          required: true,
+          content: {
+            "application/json": {
+              schema: { $ref: "#/components/schemas/ReminderInput" },
+              example: {
+                medicine_id: "550e8400-e29b-41d4-a716-446655440000",
+                time_of_day: "08:00",
+                days_of_week: [1, 2, 3, 4, 5, 6, 7],
+              },
+            },
+          },
+        },
+        responses: {
+          201: {
+            description: "Reminder",
+            content: { "application/json": { schema: { $ref: "#/components/schemas/ReminderResponse" } } },
+          },
+        },
+      },
+    },
+    "/api/reminders/{id}": {
+      parameters: [{ $ref: "#/components/parameters/id" }],
+      put: {
+        security: [{ bearerAuth: [] }],
+        summary: "Update reminder",
+        requestBody: {
+          required: true,
+          content: {
+            "application/json": {
+              schema: { $ref: "#/components/schemas/ReminderUpdate" },
+              example: { time_of_day: "09:30", is_enabled: true },
+            },
+          },
+        },
+        responses: {
+          200: {
+            description: "Reminder",
+            content: { "application/json": { schema: { $ref: "#/components/schemas/ReminderResponse" } } },
+          },
+        },
+      },
+      delete: {
+        security: [{ bearerAuth: [] }],
+        summary: "Delete reminder",
+        responses: { 200: { description: "Deleted" } },
+      },
+    },
+    "/api/adherence/{reminder_id}/mark": {
+      parameters: [{ $ref: "#/components/parameters/reminderId" }],
+      post: {
+        security: [{ bearerAuth: [] }],
+        summary: "Mark today's dose",
+        requestBody: {
+          required: true,
+          content: {
+            "application/json": {
+              schema: { $ref: "#/components/schemas/AdherenceMarkInput" },
+              example: { status: "taken", note: "Taken with breakfast" },
+            },
+          },
+        },
+        responses: {
+          200: {
+            description: "Adherence log",
+            content: { "application/json": { schema: { $ref: "#/components/schemas/AdherenceMarkResponse" } } },
+          },
+        },
+      },
+    },
+    "/api/adherence/history": {
+      get: {
+        security: [{ bearerAuth: [] }],
+        summary: "Adherence history",
+        responses: { 200: { description: "Logs" } },
+      },
+    },
+    "/api/adherence/stats": {
+      get: {
+        security: [{ bearerAuth: [] }],
+        summary: "Adherence statistics",
+        responses: { 200: { description: "Stats" } },
+      },
+    },
+    "/api/emergency-contacts": {
+      get: {
+        security: [{ bearerAuth: [] }],
+        summary: "List emergency contacts",
+        responses: { 200: { description: "Contacts" } },
+      },
+      post: {
+        security: [{ bearerAuth: [] }],
+        summary: "Add emergency contact",
+        requestBody: {
+          required: true,
+          content: {
+            "application/json": {
+              schema: { $ref: "#/components/schemas/ContactInput" },
+              example: {
+                name: "Imran Khan",
+                phone: "+92 300 7654321",
+                relation: "Brother",
+                is_primary: true,
+              },
+            },
+          },
+        },
+        responses: {
+          201: {
+            description: "Contact",
+            content: { "application/json": { schema: { $ref: "#/components/schemas/ContactResponse" } } },
+          },
+        },
+      },
+    },
+    "/api/emergency-contacts/{id}": {
+      parameters: [{ $ref: "#/components/parameters/id" }],
+      put: {
+        security: [{ bearerAuth: [] }],
+        summary: "Update contact",
+        requestBody: {
+          required: true,
+          content: {
+            "application/json": {
+              schema: { $ref: "#/components/schemas/ContactInput" },
+              example: {
+                name: "Imran Khan",
+                phone: "+92 300 7654321",
+                relation: "Brother",
+                is_primary: true,
+              },
+            },
+          },
+        },
+        responses: {
+          200: {
+            description: "Contact",
+            content: { "application/json": { schema: { $ref: "#/components/schemas/ContactResponse" } } },
+          },
+        },
+      },
+      delete: {
+        security: [{ bearerAuth: [] }],
+        summary: "Delete contact",
+        responses: { 200: { description: "Deleted" } },
+      },
+    },
+    "/api/sos": {
+      post: {
+        security: [{ bearerAuth: [] }],
+        summary: "Prepare SOS contacts",
+        requestBody: {
+          required: false,
+          content: {
+            "application/json": {
+              schema: { $ref: "#/components/schemas/SosInput" },
+              example: { note: "I need urgent assistance" },
+            },
+          },
+        },
+        responses: {
+          200: {
+            description: "SOS contacts",
+            content: { "application/json": { schema: { $ref: "#/components/schemas/SosResponse" } } },
+          },
+        },
+      },
+    },
+    "/api/family-members": {
+      get: {
+        security: [{ bearerAuth: [] }],
+        summary: "List family members",
+        responses: { 200: { description: "Family members" } },
+      },
+      post: {
+        security: [{ bearerAuth: [] }],
+        summary: "Add family member",
+        requestBody: {
+          required: true,
+          content: {
+            "application/json": {
+              schema: { $ref: "#/components/schemas/FamilyInput" },
+              example: {
+                name: "Sara Khan",
+                relation: "Daughter",
+                email: "sara.khan@example.com",
+                phone: "+92 301 1112233",
+                can_view_adherence: true,
+              },
+            },
+          },
+        },
+        responses: {
+          201: {
+            description: "Family member",
+            content: { "application/json": { schema: { $ref: "#/components/schemas/FamilyResponse" } } },
+          },
+        },
+      },
+    },
+    "/api/family-members/{id}": {
+      parameters: [{ $ref: "#/components/parameters/id" }],
+      put: {
+        security: [{ bearerAuth: [] }],
+        summary: "Update family member",
+        requestBody: {
+          required: true,
+          content: {
+            "application/json": {
+              schema: { $ref: "#/components/schemas/FamilyInput" },
+              example: {
+                name: "Sara Khan",
+                relation: "Daughter",
+                email: "sara.khan@example.com",
+                phone: "+92 301 1112233",
+                can_view_adherence: true,
+              },
+            },
+          },
+        },
+        responses: {
+          200: {
+            description: "Family member",
+            content: { "application/json": { schema: { $ref: "#/components/schemas/FamilyResponse" } } },
+          },
+        },
+      },
+      delete: {
+        security: [{ bearerAuth: [] }],
+        summary: "Delete family member",
+        responses: { 200: { description: "Deleted" } },
+      },
+    },
   },
   components: {
     securitySchemes: { bearerAuth: { type: "http", scheme: "bearer", bearerFormat: "JWT" } },
-    parameters: { id: { name: "id", in: "path", required: true, schema: { type: "string", format: "uuid" } } },
+    parameters: {
+      id: {
+        name: "id",
+        in: "path",
+        required: true,
+        schema: { type: "string", format: "uuid" },
+        example: "550e8400-e29b-41d4-a716-446655440000",
+      },
+      reminderId: {
+        name: "reminder_id",
+        in: "path",
+        required: true,
+        schema: { type: "string", format: "uuid" },
+        example: "550e8400-e29b-41d4-a716-446655440000",
+      },
+    },
     schemas: {
-      Register: { type: "object", required: ["full_name", "email", "password"], properties: { full_name: { type: "string" }, email: { type: "string", format: "email" }, password: { type: "string", minLength: 8 } } },
-      Login: { type: "object", required: ["email", "password"], properties: { email: { type: "string", format: "email" }, password: { type: "string" } } },
-      MedicineInput: { type: "object", required: ["name", "dosage", "reminder_times", "days_of_week"], properties: { name: { type: "string" }, dosage: { type: "string" }, form: { type: "string" }, frequency_per_day: { type: "integer" }, start_date: { type: "string", format: "date" }, end_date: { type: "string", format: "date", nullable: true }, instructions: { type: "string" }, reminder_times: { type: "array", items: { type: "string", example: "08:00" } }, days_of_week: { type: "array", items: { type: "integer", minimum: 1, maximum: 7 } } } },
+      Register: {
+        type: "object",
+        required: ["full_name", "email", "password"],
+        properties: {
+          full_name: { type: "string", minLength: 1, maxLength: 200, example: "Ayesha Khan" },
+          email: { type: "string", format: "email", example: "ayesha.khan@example.com" },
+          password: { type: "string", minLength: 8, example: "SafePassword123!" },
+        },
+        example: {
+          full_name: "Ayesha Khan",
+          email: "ayesha.khan@example.com",
+          password: "SafePassword123!",
+        },
+      },
+      Login: {
+        type: "object",
+        required: ["email", "password"],
+        properties: {
+          email: { type: "string", format: "email", example: "ayesha.khan@example.com" },
+          password: { type: "string", example: "SafePassword123!" },
+        },
+        example: { email: "ayesha.khan@example.com", password: "SafePassword123!" },
+      },
+      User: {
+        type: "object",
+        required: ["id", "full_name", "email", "phone", "date_of_birth", "profile_picture_url", "created_at"],
+        properties: {
+          id: { type: "string", format: "uuid", example: "550e8400-e29b-41d4-a716-446655440000" },
+          full_name: { type: "string", example: "Ayesha Khan" },
+          email: { type: "string", format: "email", example: "ayesha.khan@example.com" },
+          phone: { type: "string", nullable: true, example: "+92 300 1234567" },
+          date_of_birth: { type: "string", format: "date", nullable: true, example: "1995-06-15" },
+          profile_picture_url: { type: "string", format: "uri", nullable: true, example: null },
+          created_at: { type: "string", format: "date-time", example: "2026-09-03T08:00:00.000Z" },
+        },
+      },
+      UserResponse: {
+        type: "object",
+        required: ["data"],
+        properties: { data: { $ref: "#/components/schemas/User" } },
+      },
+      AuthData: {
+        type: "object",
+        required: ["user", "token"],
+        properties: {
+          user: { $ref: "#/components/schemas/User" },
+          token: { type: "string", example: "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..." },
+        },
+      },
+      AuthResponse: {
+        type: "object",
+        required: ["data"],
+        properties: { data: { $ref: "#/components/schemas/AuthData" } },
+      },
+      ProfileUpdate: {
+        type: "object",
+        minProperties: 1,
+        description: "Send at least one profile field. All fields are optional individually.",
+        properties: {
+          full_name: { type: "string", minLength: 1, example: "Ayesha Khan" },
+          phone: { type: "string", nullable: true, example: "+92 300 1234567" },
+          date_of_birth: { type: "string", format: "date", nullable: true, example: "1995-06-15" },
+        },
+        example: { full_name: "Ayesha Khan", phone: "+92 300 1234567", date_of_birth: "1995-06-15" },
+      },
+      MedicineInput: {
+        type: "object",
+        required: ["name", "dosage", "reminder_times", "days_of_week"],
+        properties: {
+          name: { type: "string", minLength: 1, maxLength: 200, example: "Amoxicillin" },
+          dosage: { type: "string", minLength: 1, maxLength: 100, example: "500 mg" },
+          form: {
+            type: "string",
+            enum: ["tablet", "capsule", "syrup", "injection", "drops", "other"],
+            default: "tablet",
+            example: "capsule",
+          },
+          frequency_per_day: { type: "integer", minimum: 1, maximum: 10, example: 3 },
+          start_date: { type: "string", format: "date", example: "2026-09-03" },
+          end_date: { type: "string", format: "date", nullable: true, example: "2026-09-10" },
+          instructions: { type: "string", nullable: true, example: "Take after food" },
+          reminder_times: {
+            type: "array",
+            minItems: 1,
+            maxItems: 10,
+            items: { type: "string", pattern: "^(?:[01]\\d|2[0-3]):[0-5]\\d$", example: "08:00" },
+            example: ["08:00", "14:00", "20:00"],
+          },
+          days_of_week: {
+            type: "array",
+            minItems: 1,
+            maxItems: 7,
+            uniqueItems: true,
+            items: { type: "integer", minimum: 1, maximum: 7, example: 1 },
+            example: [1, 2, 3, 4, 5, 6, 7],
+          },
+        },
+        example: {
+          name: "Amoxicillin",
+          dosage: "500 mg",
+          form: "capsule",
+          frequency_per_day: 3,
+          start_date: "2026-09-03",
+          end_date: "2026-09-10",
+          instructions: "Take after food",
+          reminder_times: ["08:00", "14:00", "20:00"],
+          days_of_week: [1, 2, 3, 4, 5, 6, 7],
+        },
+      },
+      Medicine: {
+        type: "object",
+        required: ["id", "name", "dosage", "form", "frequency_per_day", "start_date", "end_date", "instructions", "is_active", "reminders"],
+        properties: {
+          id: { type: "string", format: "uuid", example: "550e8400-e29b-41d4-a716-446655440000" },
+          name: { type: "string", example: "Amoxicillin" },
+          dosage: { type: "string", example: "500 mg" },
+          form: { type: "string", example: "capsule" },
+          frequency_per_day: { type: "integer", example: 3 },
+          start_date: { type: "string", format: "date", example: "2026-09-03" },
+          end_date: { type: "string", format: "date", nullable: true, example: "2026-09-10" },
+          instructions: { type: "string", nullable: true, example: "Take after food" },
+          is_active: { type: "boolean", example: true },
+          reminders: { type: "array", items: { $ref: "#/components/schemas/Reminder" } },
+        },
+      },
+      MedicineResponse: {
+        type: "object",
+        required: ["data"],
+        properties: { data: { $ref: "#/components/schemas/Medicine" } },
+      },
+      ReminderInput: {
+        type: "object",
+        required: ["medicine_id", "time_of_day", "days_of_week"],
+        properties: {
+          medicine_id: { type: "string", format: "uuid", example: "550e8400-e29b-41d4-a716-446655440000" },
+          time_of_day: { type: "string", pattern: "^(?:[01]\\d|2[0-3]):[0-5]\\d$", example: "08:00" },
+          days_of_week: {
+            type: "array",
+            minItems: 1,
+            maxItems: 7,
+            uniqueItems: true,
+            items: { type: "integer", minimum: 1, maximum: 7, example: 1 },
+            example: [1, 2, 3, 4, 5, 6, 7],
+          },
+        },
+        example: {
+          medicine_id: "550e8400-e29b-41d4-a716-446655440000",
+          time_of_day: "08:00",
+          days_of_week: [1, 2, 3, 4, 5, 6, 7],
+        },
+      },
+      ReminderUpdate: {
+        type: "object",
+        minProperties: 1,
+        description: "Send time_of_day, is_enabled, or both.",
+        properties: {
+          time_of_day: { type: "string", pattern: "^(?:[01]\\d|2[0-3]):[0-5]\\d$", example: "09:30" },
+          is_enabled: { type: "boolean", example: true },
+        },
+        example: { time_of_day: "09:30", is_enabled: true },
+      },
+      Reminder: {
+        type: "object",
+        required: ["id", "time_of_day", "days_of_week", "is_enabled"],
+        properties: {
+          id: { type: "string", format: "uuid", example: "550e8400-e29b-41d4-a716-446655440000" },
+          time_of_day: { type: "string", example: "08:00" },
+          days_of_week: { type: "array", items: { type: "integer", example: 1 }, example: [1, 2, 3, 4, 5, 6, 7] },
+          is_enabled: { type: "boolean", example: true },
+        },
+      },
+      ReminderResponse: {
+        type: "object",
+        required: ["data"],
+        properties: { data: { $ref: "#/components/schemas/Reminder" } },
+      },
+      AdherenceMarkInput: {
+        type: "object",
+        required: ["status"],
+        properties: {
+          status: { type: "string", enum: ["taken", "skipped"], example: "taken" },
+          note: { type: "string", nullable: true, example: "Taken with breakfast" },
+        },
+        example: { status: "taken", note: "Taken with breakfast" },
+      },
+      AdherenceMarkData: {
+        type: "object",
+        required: ["log_id", "status", "taken_at"],
+        properties: {
+          log_id: { type: "string", format: "uuid", example: "550e8400-e29b-41d4-a716-446655440000" },
+          status: { type: "string", enum: ["taken", "skipped"], example: "taken" },
+          taken_at: { type: "string", format: "date-time", nullable: true, example: "2026-09-03T08:02:00.000Z" },
+        },
+      },
+      AdherenceMarkResponse: {
+        type: "object",
+        required: ["data"],
+        properties: { data: { $ref: "#/components/schemas/AdherenceMarkData" } },
+      },
+      ContactInput: {
+        type: "object",
+        required: ["name", "phone"],
+        properties: {
+          name: { type: "string", minLength: 1, maxLength: 200, example: "Imran Khan" },
+          phone: { type: "string", minLength: 1, maxLength: 50, example: "+92 300 7654321" },
+          relation: { type: "string", nullable: true, example: "Brother" },
+          is_primary: { type: "boolean", default: false, example: true },
+        },
+        example: { name: "Imran Khan", phone: "+92 300 7654321", relation: "Brother", is_primary: true },
+      },
+      Contact: {
+        type: "object",
+        required: ["id", "name", "phone", "relation", "is_primary", "created_at"],
+        properties: {
+          id: { type: "string", format: "uuid", example: "550e8400-e29b-41d4-a716-446655440000" },
+          name: { type: "string", example: "Imran Khan" },
+          phone: { type: "string", example: "+92 300 7654321" },
+          relation: { type: "string", nullable: true, example: "Brother" },
+          is_primary: { type: "boolean", example: true },
+          created_at: { type: "string", format: "date-time", example: "2026-09-03T08:00:00.000Z" },
+        },
+      },
+      ContactResponse: {
+        type: "object",
+        required: ["data"],
+        properties: { data: { $ref: "#/components/schemas/Contact" } },
+      },
+      SosInput: {
+        type: "object",
+        properties: { note: { type: "string", nullable: true, example: "I need urgent assistance" } },
+        example: { note: "I need urgent assistance" },
+      },
+      SosContact: {
+        type: "object",
+        required: ["name", "phone", "relation"],
+        properties: {
+          name: { type: "string", example: "Imran Khan" },
+          phone: { type: "string", example: "+92 300 7654321" },
+          relation: { type: "string", nullable: true, example: "Brother" },
+        },
+      },
+      SosData: {
+        type: "object",
+        required: ["message", "contacts"],
+        properties: {
+          message: { type: "string", example: "Emergency contacts ready" },
+          contacts: { type: "array", items: { $ref: "#/components/schemas/SosContact" } },
+        },
+      },
+      SosResponse: {
+        type: "object",
+        required: ["data"],
+        properties: { data: { $ref: "#/components/schemas/SosData" } },
+      },
+      FamilyInput: {
+        type: "object",
+        required: ["name"],
+        properties: {
+          name: { type: "string", minLength: 1, maxLength: 200, example: "Sara Khan" },
+          relation: { type: "string", nullable: true, example: "Daughter" },
+          email: { type: "string", format: "email", nullable: true, example: "sara.khan@example.com" },
+          phone: { type: "string", nullable: true, example: "+92 301 1112233" },
+          can_view_adherence: { type: "boolean", default: false, example: true },
+        },
+        example: {
+          name: "Sara Khan",
+          relation: "Daughter",
+          email: "sara.khan@example.com",
+          phone: "+92 301 1112233",
+          can_view_adherence: true,
+        },
+      },
+      FamilyMember: {
+        type: "object",
+        required: ["id", "name", "relation", "email", "phone", "can_view_adherence", "created_at"],
+        properties: {
+          id: { type: "string", format: "uuid", example: "550e8400-e29b-41d4-a716-446655440000" },
+          name: { type: "string", example: "Sara Khan" },
+          relation: { type: "string", nullable: true, example: "Daughter" },
+          email: { type: "string", format: "email", nullable: true, example: "sara.khan@example.com" },
+          phone: { type: "string", nullable: true, example: "+92 301 1112233" },
+          can_view_adherence: { type: "boolean", example: true },
+          created_at: { type: "string", format: "date-time", example: "2026-09-03T08:00:00.000Z" },
+        },
+      },
+      FamilyResponse: {
+        type: "object",
+        required: ["data"],
+        properties: { data: { $ref: "#/components/schemas/FamilyMember" } },
+      },
     },
   },
 };

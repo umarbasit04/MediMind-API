@@ -988,11 +988,190 @@ app.delete(
   }),
 );
 
+// ============ WEB PUSH (Phase D) ============
+const webpush = require("web-push");
+const VAPID_PUBLIC_KEY = process.env.VAPID_PUBLIC_KEY || "";
+const VAPID_PRIVATE_KEY = process.env.VAPID_PRIVATE_KEY || "";
+const pushEnabled = Boolean(VAPID_PUBLIC_KEY && VAPID_PRIVATE_KEY);
+if (pushEnabled) {
+  webpush.setVapidDetails(
+    process.env.VAPID_SUBJECT || "mailto:umarbasit29@gmail.com",
+    VAPID_PUBLIC_KEY,
+    VAPID_PRIVATE_KEY,
+  );
+} else {
+  console.warn("VAPID keys missing - push notifications disabled");
+}
+
+// Dedupe key: reminderId|date|time. In-memory only; resets on restart (acceptable).
+const pushedRecently = new Set();
+
+app.get("/api/push/public-key", (_req, res) => sendData(res, { key: VAPID_PUBLIC_KEY }));
+
+app.post(
+  "/api/push/subscribe",
+  authMiddleware,
+  asyncHandler(async (req, res) => {
+    const { endpoint, keys } = req.body || {};
+    if (typeof endpoint !== "string" || !endpoint) throw validationError("endpoint is required");
+    if (!keys || typeof keys.p256dh !== "string" || typeof keys.auth !== "string") {
+      throw validationError("keys.p256dh and keys.auth are required");
+    }
+    await pool.query(
+      `INSERT INTO push_subscriptions (user_id, endpoint, p256dh, auth)
+       VALUES ($1,$2,$3,$4)
+       ON CONFLICT (endpoint) DO UPDATE
+       SET user_id=EXCLUDED.user_id, p256dh=EXCLUDED.p256dh, auth=EXCLUDED.auth`,
+      [req.userId, endpoint, keys.p256dh, keys.auth],
+    );
+    sendData(res, { subscribed: true }, 201);
+  }),
+);
+
+app.delete(
+  "/api/push/subscribe",
+  authMiddleware,
+  asyncHandler(async (req, res) => {
+    const { endpoint } = req.body || {};
+    requireValue(endpoint, "endpoint");
+    await pool.query(
+      "DELETE FROM push_subscriptions WHERE endpoint=$1 AND user_id=$2",
+      [endpoint, req.userId],
+    );
+    sendData(res, { unsubscribed: true });
+  }),
+);
+
+// Free cron substitute: UptimeRobot pings GET /api/cron/tick?key=CRON_SECRET every 5 min.
+app.get(
+  "/api/cron/tick",
+  asyncHandler(async (req, res) => {
+    const cronSecret = process.env.CRON_SECRET;
+    if (!cronSecret || req.query.key !== cronSecret) {
+      return sendError(res, 401, "unauthorized", "Invalid cron key");
+    }
+    const now = new Date();
+    if (!pushEnabled) return sendData(res, { pushed: 0, skipped: "vapid_not_configured", at: now.toISOString() });
+    const todayIso = now.toISOString().slice(0, 10);
+    // Contract: days_of_week 1=Monday..7=Sunday; JS getUTCDay 0=Sunday..6=Saturday
+    const utcDay = now.getUTCDay();
+    const dow = utcDay === 0 ? 7 : utcDay;
+    const due = await pool.query(
+      `SELECT r.id, r.time_of_day, r.user_id, m.name, m.dosage
+       FROM reminders r
+       JOIN medicines m ON m.id = r.medicine_id
+       WHERE r.is_enabled = true AND m.is_active = true AND $1 = ANY(r.days_of_week)`,
+      [dow],
+    );
+    let pushed = 0;
+    for (const row of due.rows) {
+      const hhmm = String(row.time_of_day).slice(0, 5);
+      const [hours, minutes] = hhmm.split(":").map(Number);
+      if (!Number.isInteger(hours) || !Number.isInteger(minutes)) continue;
+      const dueAt = Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate(), hours, minutes, 0);
+      const minutesLate = (now.getTime() - dueAt) / 60000;
+      if (minutesLate < 0 || minutesLate > 6) continue;
+      const dedupeKey = `${row.id}|${todayIso}|${hhmm}`;
+      if (pushedRecently.has(dedupeKey)) continue;
+      pushedRecently.add(dedupeKey);
+      const subs = await pool.query(
+        "SELECT endpoint, p256dh, auth FROM push_subscriptions WHERE user_id=$1",
+        [row.user_id],
+      );
+      for (const sub of subs.rows) {
+        try {
+          await webpush.sendNotification(
+            { endpoint: sub.endpoint, keys: { p256dh: sub.p256dh, auth: sub.auth } },
+            JSON.stringify({
+              title: `Time for ${row.name}`,
+              body: `${row.dosage} — open MediMind to log your dose`,
+            }),
+          );
+          pushed += 1;
+        } catch (error) {
+          if (error.statusCode === 404 || error.statusCode === 410) {
+            await pool.query("DELETE FROM push_subscriptions WHERE endpoint=$1", [sub.endpoint]);
+          } else {
+            console.error(JSON.stringify({ event: "push_failed", error: error.message }));
+          }
+        }
+      }
+    }
+    if (pushedRecently.size > 5000) pushedRecently.clear();
+    console.log(JSON.stringify({ event: "cron_tick", pushed, at: now.toISOString() }));
+    sendData(res, { pushed, at: now.toISOString() });
+  }),
+);
+
 const swaggerDocument = {
   openapi: "3.0.3",
   info: { title: "MediMind API", version: "1.0.0", description: "Medication adherence REST API" },
   servers: [{ url: "/" }],
   paths: {
+    "/api/push/public-key": {
+      get: {
+        tags: ["Push"],
+        summary: "Get VAPID public key for browser push subscription",
+        responses: {
+          200: {
+            description: "VAPID public key (empty string if push not configured)",
+            content: { "application/json": { schema: { type: "object", properties: { data: { type: "object", properties: { key: { type: "string" } } } } } } },
+          },
+        },
+      },
+    },
+    "/api/push/subscribe": {
+      post: {
+        tags: ["Push"],
+        summary: "Save a browser push subscription (auth required)",
+        requestBody: {
+          required: true,
+          content: {
+            "application/json": {
+              schema: {
+                type: "object",
+                required: ["endpoint", "keys"],
+                properties: {
+                  endpoint: { type: "string", example: "https://fcm.googleapis.com/fcm/send/abc123" },
+                  keys: {
+                    type: "object",
+                    required: ["p256dh", "auth"],
+                    properties: { p256dh: { type: "string" }, auth: { type: "string" } },
+                  },
+                },
+              },
+            },
+          },
+        },
+        responses: {
+          201: { description: "Subscription saved" },
+          400: { description: "Validation error" },
+          401: { description: "Unauthorized" },
+        },
+      },
+      delete: {
+        tags: ["Push"],
+        summary: "Remove a browser push subscription (auth required)",
+        requestBody: {
+          required: true,
+          content: { "application/json": { schema: { type: "object", required: ["endpoint"], properties: { endpoint: { type: "string" } } } } },
+        },
+        responses: { 200: { description: "Subscription removed" }, 401: { description: "Unauthorized" } },
+      },
+    },
+    "/api/cron/tick": {
+      get: {
+        tags: ["Push"],
+        summary: "Cron endpoint - sends due medication pushes (requires ?key=CRON_SECRET)",
+        parameters: [
+          { name: "key", in: "query", required: true, schema: { type: "string" }, description: "Must equal the CRON_SECRET environment variable" },
+        ],
+        responses: {
+          200: { description: "Tick processed", content: { "application/json": { schema: { type: "object", properties: { data: { type: "object", properties: { pushed: { type: "integer" }, at: { type: "string", format: "date-time" } } } } } } } },
+          401: { description: "Invalid cron key" },
+        },
+      },
+    },
     "/health": {
       get: {
         summary: "Health check",
